@@ -7,8 +7,17 @@ fn WorkerContext(comptime t: type) type {
 }
 
 // Worker function run by each thread.
-fn workerFunction(ctx: WorkerContext(i32)) void {
-    std.debug.print("Hello from {d}\n", .{ctx.n});
+fn workerFunction(ctx: WorkerContext(u32)) void {
+    const result: u32 = fib(ctx.n);
+    std.debug.print("Fib of {d} is {d}\n", .{ctx.n, result});
+}
+
+fn fib(n : u32) u32 {
+    if (n == 0 or n == 1) {
+        return n;
+    } else {
+        return fib(n - 1) + fib(n - 2);
+    }
 }
 
 pub fn main() !void {
@@ -16,10 +25,10 @@ pub fn main() !void {
     defer arena.deinit();
     const allocator = arena.allocator();
     var threads: std.ArrayList(std.Thread) = std.ArrayList(std.Thread).init(allocator);
-    var i: i32 = 0;
+    var i: u32 = 0;
     while (i < 8) : (i += 1) {
-        const worker_ctx: WorkerContext(i32) = .{
-            .n = i,
+        const worker_ctx: WorkerContext(u32) = .{
+            .n = 40,
         };
         // Start a new thread and pass the context to the worker thread.
         var thread = try std.Thread.spawn(.{}, workerFunction, .{worker_ctx});
