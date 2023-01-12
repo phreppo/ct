@@ -1,19 +1,36 @@
 const std = @import("std");
 
+fn WorkerContext(comptime t: type) type {
+    return struct {
+        n: t,
+    };
+}
+
+// Worker function run by each thread.
+fn workerFunction(ctx: WorkerContext(i32)) void {
+    std.debug.print("Hello from {d}\n", .{ctx.n});
+}
+
 pub fn main() !void {
-    // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    var threads: std.ArrayList(std.Thread) = std.ArrayList(std.Thread).init(allocator);
+    var i: i32 = 0;
+    while (i < 8) : (i += 1) {
+        const worker_ctx: WorkerContext(i32) = .{
+            .n = i,
+        };
+        // Start a new thread and pass the context to the worker thread.
+        var thread = try std.Thread.spawn(.{}, workerFunction, .{worker_ctx});
+        try threads.append(thread);
+    }
 
-    // stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
+    for (threads.items) |thread| {
+        thread.join();
+    }
 
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
-
-    try bw.flush(); // don't forget to flush!
+    std.debug.print("Done!\n", .{});
 }
 
 test "simple test" {
