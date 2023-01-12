@@ -1,44 +1,66 @@
 const std = @import("std");
+const fs = std.fs;
+const heap = std.heap;
 
-fn WorkerContext(comptime t: type) type {
-    return struct {
-        n: t,
-    };
-}
+const DEFAULT_CHUNK_SIZE: u64 = 15;
+const DEFAULT_NUMBER_OF_THREADS: u32 = 2;
+
+const Task = struct { file_name: []const u8, chunk_size: u64, offset: u64, len: u64 };
 
 // Worker function run by each thread.
-fn workerFunction(ctx: WorkerContext(u32)) void {
-    const result: u32 = fib(ctx.n);
-    std.debug.print("Fib of {d} is {d}\n", .{ctx.n, result});
-}
+fn workerFunction(task: Task) !void {
+    var file: fs.File = try fs.cwd().openFile(task.file_name, fs.File.OpenFlags{});
+    defer file.close();
+    try file.seekTo(task.offset);
+    // Prepare the source data structure.
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    var arena_allocator = arena.allocator();
+    var source = std.ArrayList(u8).init(arena_allocator);
+    defer source.deinit();
 
-fn fib(n : u32) u32 {
-    if (n == 0 or n == 1) {
-        return n;
-    } else {
-        return fib(n - 1) + fib(n - 2);
-    }
+    // Reas just the first chunk.
+    const reader = file.reader();
+    var buffer: []u8 = try arena_allocator.alloc(u8, task.chunk_size);
+    var bytes_read: usize = try reader.read(buffer);
+    std.debug.print("worker:\n{s}\n", .{buffer[0..bytes_read]});
 }
 
 pub fn main() !void {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const allocator = arena.allocator();
-    var threads: std.ArrayList(std.Thread) = std.ArrayList(std.Thread).init(allocator);
+    const file_name: []const u8 = "src/main.zig";
+    const nthreads: u32 = DEFAULT_NUMBER_OF_THREADS;
+    std.debug.print("File: {s}\n", .{file_name});
+    var file: fs.File = try fs.cwd().openFile(file_name, fs.File.OpenFlags{});
+    defer file.close();
+    const stat = try file.stat();
+    std.debug.print("{d}\n", .{stat.size});
+    const avg_size = stat.size / nthreads;
+    var arena = heap.ArenaAllocator.init(heap.page_allocator);
+    var alloc = arena.allocator();
+    var tasks = std.ArrayList(Task).init(alloc);
+    var initial_offset: u64 = 0;
     var i: u32 = 0;
-    while (i < 8) : (i += 1) {
-        const worker_ctx: WorkerContext(u32) = .{
-            .n = 40,
-        };
-        // Start a new thread and pass the context to the worker thread.
-        var thread = try std.Thread.spawn(.{}, workerFunction, .{worker_ctx});
+    while (i < nthreads) : (i += 1) {
+        const reminder: u64 = try std.math.rem(u64, stat.size, avg_size);
+        var current_size: u64 = avg_size;
+        if (i < reminder) {
+            current_size += 1;
+        }
+        const task = Task{ .file_name = file_name, .chunk_size = DEFAULT_CHUNK_SIZE, .offset = initial_offset, .len = current_size };
+        try tasks.append(task);
+        initial_offset += current_size;
+    }
+    std.debug.print("{any}\n", .{tasks.items});
+
+    var threads: std.ArrayList(std.Thread) = std.ArrayList(std.Thread).init(alloc);
+    i = 0;
+    for (tasks.items) |task| {
+        var thread = try std.Thread.spawn(.{}, workerFunction, .{task});
         try threads.append(thread);
     }
-
     for (threads.items) |thread| {
         thread.join();
     }
-
     std.debug.print("Done!\n", .{});
 }
 
