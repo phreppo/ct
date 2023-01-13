@@ -1,4 +1,5 @@
 const std = @import("std");
+const mem = std.mem;
 const os = std.os;
 
 const DEFAULT_NUMBER_OF_THREADS: u64 = 1;
@@ -24,15 +25,15 @@ pub fn parse_args() ParseArgsError!Config {
     var threads: u64 = DEFAULT_NUMBER_OF_THREADS;
     var chunks_size: u64 = DEFAULT_CHUNKS_SIZE;
     while (i < os.argv.len) : (i += 1) {
-        const arg = manyPtrToSlice(os.argv[i]);
-        if (std.mem.eql(u8, arg, THREADS_LONG_FLAG) or std.mem.eql(u8, arg, THREADS_SHORT_FLAG)) {
+        const arg: []const u8 = mem.span(os.argv[i]);
+        if (mem.eql(u8, arg, THREADS_LONG_FLAG) or mem.eql(u8, arg, THREADS_SHORT_FLAG)) {
             // Set the threads.
             i += 1;
-            threads = std.fmt.parseInt(u64, manyPtrToSlice(os.argv[i]), 10) catch unreachable;
-        } else if (std.mem.eql(u8, arg, CHUNKS_LONG_FLAG) or std.mem.eql(u8, arg, THREADS_SHORT_FLAG)) {
+            threads = std.fmt.parseInt(u64, mem.span(os.argv[i]), 10) catch unreachable;
+        } else if (mem.eql(u8, arg, CHUNKS_LONG_FLAG) or mem.eql(u8, arg, THREADS_SHORT_FLAG)) {
             // Set the chunks.
             i += 1;
-            chunks_size = std.fmt.parseInt(u64, manyPtrToSlice(os.argv[i]), 10) catch unreachable;
+            chunks_size = std.fmt.parseInt(u64, mem.span(os.argv[i]), 10) catch unreachable;
         } else {
             // Set the name of the file.
             maybe_file_name = arg;
@@ -45,12 +46,6 @@ pub fn parse_args() ParseArgsError!Config {
             .chunks_size = chunks_size,
         };
     } else return error.FilePathNotProvided;
-}
-
-fn manyPtrToSlice(ptr: [*:0]const u8) []const u8 {
-    var i: usize = 0;
-    while (ptr[i] != 0) : (i += 1) {}
-    return ptr[0..i];
 }
 
 pub fn printErrorMessage(err: ParseArgsError, writer: std.fs.File.Writer) void {
