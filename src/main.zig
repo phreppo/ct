@@ -41,6 +41,22 @@ pub fn countLinesByte(file_name: []const u8, from: u64, len: u64) !u64 {
     return lines;
 }
 
+pub fn countLinesReadline(file_name: []const u8, from: u64, len: u64, chunk_size: u64) !u64 {
+    var arena = heap.ArenaAllocator.init(heap.page_allocator);
+    var alloc = arena.allocator();
+    var chunk = try alloc.alloc(u8, chunk_size);
+    var file = try fs.cwd().openFile(file_name, fs.File.OpenFlags{});
+    try file.seekTo(from);
+    var reader = file.reader();
+    var i: u64 = 0;
+    var lines: u64 = 0;
+    while (i < len) : (i += 1) {
+        _ = reader.readUntilDelimiter(chunk, '\n') catch return lines;
+        lines += 1;
+    }
+    return lines;
+}
+
 pub fn countLinesChunk(file_name: []const u8, from: u64, len: u64, chunk_size: u64) !u64 {
     var arena = heap.ArenaAllocator.init(heap.page_allocator);
     var alloc = arena.allocator();
@@ -67,13 +83,18 @@ pub fn main() !void {
     const file_size = try getFileSize(file_name);
     std.debug.print("{d}\n", .{file_size});
     var timer = try std.time.Timer.start();
-    // const lines = try countLinesByte(file_name, 0, file_size);
-    // var countLinesByteTime = timer.lap() / 1000;
-    // std.debug.print("countLinesByte lines: {d}\n", .{lines});
-    // std.debug.print("countLinesByte time(ms): {d}\n", .{countLinesByteTime});
-    // timer.reset();
+    const lines = try countLinesByte(file_name, 0, file_size);
+    var countLinesByteTime = timer.lap() / 100_000;
+    std.debug.print("countLinesByte lines: {d}\n", .{lines});
+    std.debug.print("countLinesByte time(ms): {d}\n", .{countLinesByteTime});
+    timer.reset();
+    const linesReadline = try countLinesReadline(file_name, 0, file_size, 51200);
+    var countLinesReadlineTime = timer.lap() / 100_000;
+    std.debug.print("countLinesReadline lines: {d}\n", .{linesReadline});
+    std.debug.print("countLinesReadline time(ms): {d}\n", .{countLinesReadlineTime});
+    timer.reset();
     const linesChunk = try countLinesChunk(file_name, 0, file_size, 51200);
-    var countLinesChunkTime = timer.lap() / 1000;
+    var countLinesChunkTime = timer.lap() / 100_000;
     std.debug.print("countLinesChunk lines: {d}\n", .{linesChunk});
     std.debug.print("countLinesChunk time(ms): {d}\n", .{countLinesChunkTime});
     // const nthreads: u32 = DEFAULT_NUMBER_OF_THREADS;
