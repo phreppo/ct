@@ -6,11 +6,10 @@ const args = @import("./args.zig");
 const cnt = @import("./cnt.zig");
 
 pub fn main() !void {
-    var parsed_config: args.ParseArgsError!args.Config = args.parse_args();
-    if (parsed_config) |config| {
+    if (args.parse_args()) |config| {
         try cnt.run(config);
     } else |err| {
-        args.printErrorMessage(err);
+        args.printErrorMessage(err, std.io.getStdErr().writer());
         std.os.exit(1);
     }
 }

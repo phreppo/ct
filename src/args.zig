@@ -56,22 +56,20 @@ fn manyPtrToSlice(ptr: [*:0]const u8) []const u8 {
     return ptr[0..l];
 }
 
-pub fn printErrorMessage(err: ParseArgsError) void {
+pub fn printErrorMessage(err: ParseArgsError, writer: std.fs.File.Writer) void {
     switch (err) {
         error.FilePathNotProvided => {
-            const stderr = std.io.getStdErr().writer();
-            stderr.print("Must provide an input file.\n", .{}) catch std.os.exit(1);
+            writer.print("Must provide an input file.\n", .{}) catch std.os.exit(1);
         },
     }
-    printHelpMessage() catch std.os.exit(1);
+    printHelpMessage(writer) catch std.os.exit(1);
 }
 
-pub fn printHelpMessage() !void {
-    const stderr = std.io.getStdErr().writer();
-    try stderr.print("usage: cnt [OPTIONS] [input]\n", .{});
-    try stderr.print("OPTIONS\n", .{});
-    try stderr.print("\t{s},{s} <threads>\t\tSets the number of threads to use.\n", .{ THREADS_LONG_FLAG, THREADS_SHORT_FLAG });
-    try stderr.print("\t{s},{s} <chunks-size>\tSets the size of the chunks allocated.\n", .{ CHUNKS_LONG_FLAG, CHUNKS_SHORT_FLAG });
-    try stderr.print("ARGS\n", .{});
-    try stderr.print("\t<input>\t\tPath to the input file.\n", .{});
+pub fn printHelpMessage(writer: std.fs.File.Writer) !void {
+    try writer.print("usage: cnt [OPTIONS] [input]\n", .{});
+    try writer.print("OPTIONS\n", .{});
+    try writer.print("\t{s},{s} <threads>\t\tSets the number of threads to use.\n", .{ THREADS_LONG_FLAG, THREADS_SHORT_FLAG });
+    try writer.print("\t{s},{s} <chunks-size>\tSets the size of the chunks allocated.\n", .{ CHUNKS_LONG_FLAG, CHUNKS_SHORT_FLAG });
+    try writer.print("ARGS\n", .{});
+    try writer.print("\t<input>\t\tPath to the input file.\n", .{});
 }

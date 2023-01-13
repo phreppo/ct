@@ -48,7 +48,8 @@ pub fn run(config: args.Config) !void {
     for (answers.items) |answer| {
         lines += answer;
     }
-    std.debug.print("Lines: {d}\n", .{lines});
+    const stdout = std.io.getStdOut().writer();
+    try stdout.print("{d}\n", .{lines});
 }
 
 pub fn getFileSize(file_name: []const u8) !u64 {
