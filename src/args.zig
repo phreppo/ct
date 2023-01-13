@@ -57,8 +57,8 @@ pub fn parse_args() ParseArgsError!Config {
 }
 
 fn parse_numeric_arg(iter : *std.process.ArgIterator, missing_arg_error: ParseArgsError, parse_integer_error: ParseArgsError) ParseArgsError!u64 {
-    var threads_val = iter.next() orelse return missing_arg_error;
-    return std.fmt.parseInt(u64, mem.span(threads_val), 10) catch return parse_integer_error;
+    var val = iter.next() orelse return missing_arg_error;
+    return std.fmt.parseInt(u64, mem.span(val), 10) catch return parse_integer_error;
 }
 
 pub fn printErrorMessage(err: ParseArgsError, writer: std.fs.File.Writer) !void {
