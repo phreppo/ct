@@ -83,6 +83,7 @@ pub fn countLinesChunk(file_name: []const u8, from: u64, len: u64, chunk_size: u
     var chunk = try alloc.alloc(u8, actual_chunk_size);
     const open_flags = fs.File.OpenFlags{ .lock = .Shared, .lock_nonblocking = true };
     var file = try fs.cwd().openFile(file_name, open_flags);
+    defer file.close();
     try file.seekTo(from);
     var reader = file.reader();
     var bytes_read: usize = 0;
@@ -115,6 +116,13 @@ test "zero lines" {
 test "zero lines non-empty" {
     const conf: args.Config = args.Config{
         .file_name = "tests/zero-non-empty.txt",
+    };
+    try testing.expectEqual(@as(u64, 0), try run(conf));
+}
+test "more threads than bytes" {
+    const conf: args.Config = args.Config{
+        .file_name = "tests/zero-lines.txt",
+        .threads = 512,
     };
     try testing.expectEqual(@as(u64, 0), try run(conf));
 }
