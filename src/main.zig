@@ -11,7 +11,7 @@ const Task = struct { file_name: []const u8, chunk_size: u64, from: u64, len: u6
 // Worker function run by each thread.
 fn workerFunction(task: Task) !void {
     const lines = try countLinesChunk(task.file_name, task.from, task.len, task.chunk_size);
-    std.debug.print("{any}: {d}\n", .{task, lines});
+    std.debug.print("{any}: {d}\n", .{ task, lines });
     task.answer.* = lines;
 }
 
@@ -64,7 +64,6 @@ pub fn main() !void {
         try tasks.append(task);
         initial_offset += current_size;
     }
-    // std.debug.print("{any}\n", .{tasks.items});
     var threads: std.ArrayList(std.Thread) = std.ArrayList(std.Thread).init(alloc);
     i = 0;
     for (tasks.items) |task| {
@@ -129,14 +128,15 @@ pub fn countLinesReadline(file_name: []const u8, from: u64, len: u64, chunk_size
 pub fn countLinesChunk(file_name: []const u8, from: u64, len: u64, chunk_size: u64) !u64 {
     var arena = heap.ArenaAllocator.init(heap.page_allocator);
     var alloc = arena.allocator();
-    var chunk = try alloc.alloc(u8, chunk_size);
+    const actual_chunk_size = if (len >= chunk_size) chunk_size else len;
+    var chunk = try alloc.alloc(u8, actual_chunk_size);
     var file = try fs.cwd().openFile(file_name, fs.File.OpenFlags{ .lock = .Shared, .lock_nonblocking = true });
     try file.seekTo(from);
     var reader = file.reader();
     var bytes_read: usize = 0;
     var lines: u64 = 0;
     while (bytes_read < len) {
-        var current_bytes_read = try reader.read(chunk);
+        var current_bytes_read = try reader.readAll(chunk);
         bytes_read += current_bytes_read;
         for (chunk[0..current_bytes_read]) |c| {
             if (c == '\n') {
