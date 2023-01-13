@@ -109,24 +109,27 @@ test "six lines" {
     const conf: args.Config = args.Config{
         .file_name = "tests/five-lines.txt",
     };
-    try testing.expectEqual(@as(u64, 5), try run(conf));
+    try testRun(5, conf);
 }
 test "zero lines" {
     const conf: args.Config = args.Config{
         .file_name = "tests/zero-lines.txt",
     };
-    try testing.expectEqual(@as(u64, 0), try run(conf));
+    try testRun(0, conf);
 }
 test "zero lines non-empty" {
     const conf: args.Config = args.Config{
         .file_name = "tests/zero-non-empty.txt",
     };
-    try testing.expectEqual(@as(u64, 0), try run(conf));
+    try testRun(0, conf);
 }
 test "more threads than bytes" {
     const conf: args.Config = args.Config{
         .file_name = "tests/zero-lines.txt",
         .threads = 512,
     };
-    try testing.expectEqual(@as(u64, 0), try run(conf));
+    try testRun(0, conf);
+}
+fn testRun(expected: u64, conf: args.Config) !void {
+    try testing.expectEqual(expected, try run(conf));
 }
