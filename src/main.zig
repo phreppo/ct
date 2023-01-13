@@ -2,9 +2,7 @@ const std = @import("std");
 const fs = std.fs;
 const heap = std.heap;
 const os = std.os;
-
-const DEFAULT_NUMBER_OF_THREADS: u64 = 2;
-const DEFAULT_CHUNKS_SIZE: u64 = 1024 * 1024;
+const args = @import("./args.zig");
 
 const Task = struct { file_name: []const u8, chunk_size: u64, from: u64, len: u64, answer: *u64 };
 
@@ -16,86 +14,55 @@ fn workerFunction(task: Task) !void {
 }
 
 pub fn main() !void {
-    var config: Config = parse_args();
-    var arena = heap.ArenaAllocator.init(heap.page_allocator);
-    var alloc = arena.allocator();
+    var parsed_config: args.ParseArgsError!args.Config = args.parse_args();
+    if (parsed_config) |config| {
+        var my_config = config; // We have to assign this because otherwise it is a constant.
+        var arena = heap.ArenaAllocator.init(heap.page_allocator);
+        var alloc = arena.allocator();
 
-    const file_size = try getFileSize(config.file_name);
-    std.debug.print("File size: {d} bytes\n", .{file_size});
+        const file_size = try getFileSize(my_config.file_name);
+        std.debug.print("File size: {d} bytes\n", .{file_size});
 
-    // We set the number of threads to be the minimum between what was provided by the user and the file size.
-    // If the file size is less than the number of threads and we ignore this, where are divisions by zero.
-    config.threads = std.math.min(config.threads, file_size);
+        // We set the number of threads to be the minimum between what was provided by the user and the file size.
+        // If the file size is less than the number of threads and we ignore this, where are divisions by zero.
+        my_config.threads = std.math.min(my_config.threads, file_size);
 
-    const avg_size = file_size / config.threads;
-    var answers: std.ArrayList(u64) = std.ArrayList(u64).init(alloc);
-    var j: u64 = 0;
-    while (j < config.threads) : (j += 1) {
-        try answers.append(0);
-    }
-    var tasks = std.ArrayList(Task).init(alloc);
-    var initial_offset: u64 = 0;
-    var i: u32 = 0;
-    while (i < config.threads) : (i += 1) {
-        const reminder: u64 = try std.math.rem(u64, file_size, avg_size);
-        var current_size: u64 = avg_size;
-        if (i < reminder) {
-            current_size += 1;
+        const avg_size = file_size / my_config.threads;
+        var answers: std.ArrayList(u64) = std.ArrayList(u64).init(alloc);
+        var j: u64 = 0;
+        while (j < my_config.threads) : (j += 1) {
+            try answers.append(0);
         }
-        const task = Task{ .file_name = config.file_name, .chunk_size = config.chunks_size, .from = initial_offset, .len = current_size, .answer = &(answers.items[i]) };
-        try tasks.append(task);
-        initial_offset += current_size;
-    }
-    var threads: std.ArrayList(std.Thread) = std.ArrayList(std.Thread).init(alloc);
-    i = 0;
-    for (tasks.items) |task| {
-        var thread = try std.Thread.spawn(.{}, workerFunction, .{task});
-        try threads.append(thread);
-    }
-    for (threads.items) |thread| {
-        thread.join();
-    }
-    var lines: u64 = 0;
-    for (answers.items) |answer| {
-        lines += answer;
-    }
-    std.debug.print("Lines: {d}\n", .{lines});
-}
-
-const Config = struct {
-    file_name: []const u8 = "",
-    threads: u64 = DEFAULT_NUMBER_OF_THREADS,
-    chunks_size: u64 = DEFAULT_CHUNKS_SIZE,
-};
-
-fn parse_args() Config {
-    var i: usize = 1;
-    var config = Config{};
-    while (i < os.argv.len) : (i += 1) {
-        const arg = manyPtrToSlice(os.argv[i]);
-        if (std.mem.eql(u8, arg, "--threads")) {
-            // Set the threads.
-            i += 1;
-            const threads = std.fmt.parseInt(u64, manyPtrToSlice(os.argv[i]), 10) catch unreachable;
-            config.threads = threads;
-        } else if (std.mem.eql(u8, arg, "--chunks-size")) {
-            // Set the chunks.
-            i += 1;
-            const chunks_size = std.fmt.parseInt(u64, manyPtrToSlice(os.argv[i]), 10) catch unreachable;
-            config.chunks_size = chunks_size;
-        } else {
-            // Set the name of the file.
-            config.file_name = arg;
+        var tasks = std.ArrayList(Task).init(alloc);
+        var initial_offset: u64 = 0;
+        var i: u32 = 0;
+        while (i < my_config.threads) : (i += 1) {
+            const reminder: u64 = try std.math.rem(u64, file_size, avg_size);
+            var current_size: u64 = avg_size;
+            if (i < reminder) {
+                current_size += 1;
+            }
+            const task = Task{ .file_name = my_config.file_name, .chunk_size = my_config.chunks_size, .from = initial_offset, .len = current_size, .answer = &(answers.items[i]) };
+            try tasks.append(task);
+            initial_offset += current_size;
         }
+        var threads: std.ArrayList(std.Thread) = std.ArrayList(std.Thread).init(alloc);
+        i = 0;
+        for (tasks.items) |task| {
+            var thread = try std.Thread.spawn(.{}, workerFunction, .{task});
+            try threads.append(thread);
+        }
+        for (threads.items) |thread| {
+            thread.join();
+        }
+        var lines: u64 = 0;
+        for (answers.items) |answer| {
+            lines += answer;
+        }
+        std.debug.print("Lines: {d}\n", .{lines});
+    } else |err| switch (err) {
+        error.FilePathNotProvided => std.os.exit(1),
     }
-    return config;
-}
-
-fn manyPtrToSlice(ptr: [*:0]const u8) []const u8 {
-    var l: usize = 0;
-    var i: usize = 0;
-    while (ptr[i] != 0) : (i += 1) l += 1;
-    return ptr[0..l];
 }
 
 pub fn getFileSize(file_name: []const u8) !u64 {
