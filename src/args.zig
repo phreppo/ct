@@ -29,22 +29,19 @@ pub const ParseArgsError = error{
 };
 
 pub fn parse_args() ParseArgsError!Config {
-    var i: usize = 1;
     var maybe_file_name: ?[]const u8 = null;
     var threads: u64 = DEFAULT_NUMBER_OF_THREADS;
     var chunks_size: u64 = DEFAULT_CHUNKS_SIZE;
-    while (i < os.argv.len) : (i += 1) {
-        const arg: []const u8 = mem.span(os.argv[i]);
+    var iter = std.process.args(); // TODO: use args with allocator for cross-platform code.
+    _ = iter.next(); // Skip the name of the program.
+    while (iter.next()) |arg_slice| {
+        var arg = std.mem.span(arg_slice);
         if (mem.eql(u8, arg, THREADS_LONG_FLAG) or mem.eql(u8, arg, THREADS_SHORT_FLAG)) {
             // Set the threads.
-            i += 1;
-            if (os.argv.len >= i) return error.ThreadOptionExpectsArgument;
-            threads = std.fmt.parseInt(u64, mem.span(os.argv[i]), 10) catch return error.ThreadOptionExpectsInteger;
+            threads = try parse_numeric_arg(&iter, error.ThreadOptionExpectsArgument, error.ThreadOptionExpectsInteger);
         } else if (mem.eql(u8, arg, CHUNKS_LONG_FLAG) or mem.eql(u8, arg, CHUNKS_SHORT_FLAG)) {
             // Set the chunks.
-            i += 1;
-            if (os.argv.len >= i) return error.ChunksSizeOptionExpectsArgument;
-            chunks_size = std.fmt.parseInt(u64, mem.span(os.argv[i]), 10) catch return error.ChunksSizeOptionExpectsInteger;
+            chunks_size = try parse_numeric_arg(&iter, error.ChunksSizeOptionExpectsArgument, error.ChunksSizeOptionExpectsInteger);
         } else {
             // Set the name of the file.
             maybe_file_name = arg;
@@ -59,14 +56,19 @@ pub fn parse_args() ParseArgsError!Config {
     } else return error.FilePathNotProvided;
 }
 
+fn parse_numeric_arg(iter : *std.process.ArgIterator, missing_arg_error: ParseArgsError, parse_integer_error: ParseArgsError) ParseArgsError!u64 {
+    var threads_val = iter.next() orelse return missing_arg_error;
+    return std.fmt.parseInt(u64, mem.span(threads_val), 10) catch return parse_integer_error;
+}
+
 pub fn printErrorMessage(err: ParseArgsError, writer: std.fs.File.Writer) !void {
     switch (err) {
         error.FilePathNotProvided => {
             try writer.print("Must provide an input file.\n", .{});
         },
         error.ThreadOptionExpectsArgument, error.ThreadOptionExpectsInteger => {
-            try writer.print("{s} and {s} options expect an integer argument.\n", .{ THREADS_LONG_FLAG, THREADS_SHORT_FLAG });
-        },
+            try writer.print("{s} and {s} options expect an argument.\n", .{ THREADS_LONG_FLAG, THREADS_SHORT_FLAG });
+        }, 
         error.ChunksSizeOptionExpectsArgument, error.ChunksSizeOptionExpectsInteger => {
             try writer.print("{s} and {s} options expect an integer argument.\n", .{ CHUNKS_LONG_FLAG, CHUNKS_SHORT_FLAG });
         },
