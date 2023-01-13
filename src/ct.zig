@@ -9,9 +9,8 @@ const Task = struct { file_name: []const u8, chunk_size: u64, from: u64, len: u6
 pub fn run(config: args.Config) !u64 {
     // TODO: the last thread should be executed in the current thread, without spawning a new one.
     const file_size = try getFileSize(config.file_name);
-    if (file_size == 0) {
-        return 0;
-    }
+    if (file_size == 0) return 0;
+
     // We set the number of threads to be the minimum between what was provided by the user and the file size.
     // If the file size is less than the number of threads and we ignore this, where are divisions by zero.
     const nthreads = std.math.min(config.threads, file_size);
