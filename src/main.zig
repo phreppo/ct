@@ -11,7 +11,7 @@ pub fn main() !void {
         const stdout = std.io.getStdOut().writer();
         try stdout.print("{d}\n", .{lines});
     } else |err| {
-        args.printErrorMessage(err, std.io.getStdErr().writer());
+        try args.printErrorMessage(err, std.io.getStdErr().writer());
         std.os.exit(1);
     }
 }
