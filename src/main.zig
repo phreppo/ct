@@ -67,8 +67,9 @@ pub fn countLinesChunk(file_name: []const u8, from: u64, len: u64, chunk_size: u
     var bytes_read: usize = 0;
     var lines: u64 = 0;
     while (bytes_read < len) {
-        bytes_read += try reader.read(chunk);
-        for (chunk) |c| {
+        var current_bytes_read = try reader.read(chunk);
+        bytes_read += current_bytes_read;
+        for (chunk[0..current_bytes_read]) |c| {
             if (c == '\n') {
                 lines += 1;
             }
