@@ -30,11 +30,11 @@ pub fn run(config: args.Config) !u64 {
     var arena = heap.ArenaAllocator.init(heap.page_allocator);
     var alloc = arena.allocator();
     var answers: std.ArrayList(u64) = std.ArrayList(u64).init(alloc);
+    defer answers.deinit();
     var i: u64 = 0;
-    while (i < nthreads) : (i += 1) {
-        try answers.append(0);
-    }
+    while (i < nthreads) : (i += 1) try answers.append(0);
     var tasks = std.ArrayList(Task).init(alloc);
+    defer tasks.deinit();
     var initial_offset: u64 = 0;
     i = 0;
     while (i < nthreads) : (i += 1) {
@@ -51,7 +51,8 @@ pub fn run(config: args.Config) !u64 {
         try tasks.append(task);
         initial_offset += current_size;
     }
-    var threads: std.ArrayList(std.Thread) = std.ArrayList(std.Thread).init(alloc);
+    var threads = std.ArrayList(std.Thread).init(alloc);
+    defer threads.deinit();
     i = 0;
     for (tasks.items) |task| {
         var thread = try std.Thread.spawn(.{}, workerFunction, .{task});
