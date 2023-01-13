@@ -4,7 +4,18 @@ const heap = std.heap;
 const os = std.os;
 const args = @import("./args.zig");
 
-const Task = struct { file_name: []const u8, chunk_size: u64, from: u64, len: u64, answer: *u64 };
+const Task = struct {
+    /// Name of the file to open.
+    file_name: []const u8,
+    /// Size to use for the chunk.
+    chunk_size: u64, 
+    /// Offset in the input file.
+    from: u64, 
+    /// Number of bytes to read.
+    len: u64, 
+    /// Address for writing the answer for the ask.
+    answer: *u64 
+};
 
 pub fn run(config: args.Config) !u64 {
     // TODO: the last thread should be executed in the current thread, without spawning a new one.
@@ -29,10 +40,14 @@ pub fn run(config: args.Config) !u64 {
     while (i < nthreads) : (i += 1) {
         const reminder: u64 = try std.math.rem(u64, file_size, avg_size);
         var current_size: u64 = avg_size;
-        if (i < reminder) {
-            current_size += 1;
-        }
-        const task = Task{ .file_name = config.file_name, .chunk_size = config.chunks_size, .from = initial_offset, .len = current_size, .answer = &(answers.items[i]) };
+        if (i < reminder) current_size += 1;
+        const task = Task{ 
+            .file_name = config.file_name, 
+            .chunk_size = config.chunks_size, 
+            .from = initial_offset, 
+            .len = current_size, 
+            .answer = &(answers.items[i]) 
+        };
         try tasks.append(task);
         initial_offset += current_size;
     }
