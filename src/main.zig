@@ -3,8 +3,8 @@ const fs = std.fs;
 const heap = std.heap;
 const os = std.os;
 
-const DEFAULT_CHUNK_SIZE: u64 = 1024 * 32;
-const DEFAULT_NUMBER_OF_THREADS: u32 = 2;
+const DEFAULT_NUMBER_OF_THREADS: u64 = 2;
+const DEFAULT_CHUNKS_SIZE: u64 = 1024 * 1024;
 
 const Task = struct { file_name: []const u8, chunk_size: u64, from: u64, len: u64, answer: *u64 };
 
@@ -16,51 +16,33 @@ fn workerFunction(task: Task) !void {
 }
 
 pub fn main() !void {
-    if (os.argv.len != 3) {
-        std.debug.print("Must supply exactly two argument.\n", .{});
-        os.exit(1);
-    }
-
-    const file_name: []const u8 = manyPtrToSlice(os.argv[1]);
-    std.debug.print("File: {s}\n", .{file_name});
-    const file_size = try getFileSize(file_name);
-    std.debug.print("File size: {d} bytes\n", .{file_size});
-    // var timer = try std.time.Timer.start();
-    const nthreads: u64 = try std.fmt.parseInt(u64, manyPtrToSlice(os.argv[2]), 10);
-    std.debug.print("Using {d} threads.\n", .{nthreads});
-    // const lines = try countLinesByte(file_name, 0, file_size);
-    // var countLinesByteTime = timer.lap() / 100_000;
-    // std.debug.print("countLinesByte lines: {d}\n", .{lines});
-    // std.debug.print("countLinesByte time(ms): {d}\n", .{countLinesByteTime});
-    // timer.reset();
-    // const linesReadline = try countLinesReadline(file_name, 0, file_size, 51200);
-    // var countLinesReadlineTime = timer.lap() / 100_000;
-    // std.debug.print("countLinesReadline lines: {d}\n", .{linesReadline});
-    // std.debug.print("countLinesReadline time(ms): {d}\n", .{countLinesReadlineTime});
-    // timer.reset();
-    // const linesChunk = try countLinesChunk(file_name, 0, file_size, 51200);
-    // var countLinesChunkTime = timer.lap() / 100_000;
-    // std.debug.print("countLinesChunk lines: {d}\n", .{linesChunk});
-    // std.debug.print("countLinesChunk time(ms): {d}\n", .{countLinesChunkTime});
-    // const nthreads: u32 = DEFAULT_NUMBER_OF_THREADS;
-    const avg_size = file_size / nthreads;
+    var config: Config = parse_args();
     var arena = heap.ArenaAllocator.init(heap.page_allocator);
     var alloc = arena.allocator();
+
+    const file_size = try getFileSize(config.file_name);
+    std.debug.print("File size: {d} bytes\n", .{file_size});
+
+    // We set the number of threads to be the minimum between what was provided by the user and the file size.
+    // If the file size is less than the number of threads and we ignore this, where are divisions by zero.
+    config.threads = std.math.min(config.threads, file_size);
+
+    const avg_size = file_size / config.threads;
     var answers: std.ArrayList(u64) = std.ArrayList(u64).init(alloc);
     var j: u64 = 0;
-    while (j < nthreads) : (j += 1) {
+    while (j < config.threads) : (j += 1) {
         try answers.append(0);
     }
     var tasks = std.ArrayList(Task).init(alloc);
     var initial_offset: u64 = 0;
     var i: u32 = 0;
-    while (i < nthreads) : (i += 1) {
+    while (i < config.threads) : (i += 1) {
         const reminder: u64 = try std.math.rem(u64, file_size, avg_size);
         var current_size: u64 = avg_size;
         if (i < reminder) {
             current_size += 1;
         }
-        const task = Task{ .file_name = file_name, .chunk_size = DEFAULT_CHUNK_SIZE, .from = initial_offset, .len = current_size, .answer = &(answers.items[i]) };
+        const task = Task{ .file_name = config.file_name, .chunk_size = config.chunks_size, .from = initial_offset, .len = current_size, .answer = &(answers.items[i]) };
         try tasks.append(task);
         initial_offset += current_size;
     }
@@ -80,6 +62,35 @@ pub fn main() !void {
     std.debug.print("Lines: {d}\n", .{lines});
 }
 
+const Config = struct {
+    file_name: []const u8 = "",
+    threads: u64 = DEFAULT_NUMBER_OF_THREADS,
+    chunks_size: u64 = DEFAULT_CHUNKS_SIZE,
+};
+
+fn parse_args() Config {
+    var i: usize = 1;
+    var config = Config{};
+    while (i < os.argv.len) : (i += 1) {
+        const arg = manyPtrToSlice(os.argv[i]);
+        if (std.mem.eql(u8, arg, "--threads")) {
+            // Set the threads.
+            i += 1;
+            const threads = std.fmt.parseInt(u64, manyPtrToSlice(os.argv[i]), 10) catch unreachable;
+            config.threads = threads;
+        } else if (std.mem.eql(u8, arg, "--chunks-size")) {
+            // Set the chunks.
+            i += 1;
+            const chunks_size = std.fmt.parseInt(u64, manyPtrToSlice(os.argv[i]), 10) catch unreachable;
+            config.chunks_size = chunks_size;
+        } else {
+            // Set the name of the file.
+            config.file_name = arg;
+        }
+    }
+    return config;
+}
+
 fn manyPtrToSlice(ptr: [*:0]const u8) []const u8 {
     var l: usize = 0;
     var i: usize = 0;
@@ -94,43 +105,13 @@ pub fn getFileSize(file_name: []const u8) !u64 {
     return stat.size;
 }
 
-pub fn countLinesByte(file_name: []const u8, from: u64, len: u64) !u64 {
-    var file = try fs.cwd().openFile(file_name, fs.File.OpenFlags{});
-    try file.seekTo(from);
-    var reader = file.reader();
-    var i: u64 = 0;
-    var lines: u64 = 0;
-    while (i < len) : (i += 1) {
-        var c = reader.readByte() catch return lines;
-        if (c == '\n') {
-            lines += 1;
-        }
-    }
-    return lines;
-}
-
-pub fn countLinesReadline(file_name: []const u8, from: u64, len: u64, chunk_size: u64) !u64 {
-    var arena = heap.ArenaAllocator.init(heap.page_allocator);
-    var alloc = arena.allocator();
-    var chunk = try alloc.alloc(u8, chunk_size);
-    var file = try fs.cwd().openFile(file_name, fs.File.OpenFlags{});
-    try file.seekTo(from);
-    var reader = file.reader();
-    var i: u64 = 0;
-    var lines: u64 = 0;
-    while (i < len) : (i += 1) {
-        _ = reader.readUntilDelimiter(chunk, '\n') catch return lines;
-        lines += 1;
-    }
-    return lines;
-}
-
 pub fn countLinesChunk(file_name: []const u8, from: u64, len: u64, chunk_size: u64) !u64 {
     var arena = heap.ArenaAllocator.init(heap.page_allocator);
     var alloc = arena.allocator();
     const actual_chunk_size = if (len >= chunk_size) chunk_size else len;
     var chunk = try alloc.alloc(u8, actual_chunk_size);
-    var file = try fs.cwd().openFile(file_name, fs.File.OpenFlags{ .lock = .Shared, .lock_nonblocking = true });
+    const open_flags = fs.File.OpenFlags{ .lock = .Shared, .lock_nonblocking = true };
+    var file = try fs.cwd().openFile(file_name, open_flags);
     try file.seekTo(from);
     var reader = file.reader();
     var bytes_read: usize = 0;
