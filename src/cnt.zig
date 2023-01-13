@@ -6,17 +6,15 @@ const args = @import("./args.zig");
 
 const Task = struct { file_name: []const u8, chunk_size: u64, from: u64, len: u64, answer: *u64 };
 
-pub fn run(config: args.Config) !void {
-    var arena = heap.ArenaAllocator.init(heap.page_allocator);
-    var alloc = arena.allocator();
-
+pub fn run(config: args.Config) !u64 {
     const file_size = try getFileSize(config.file_name);
-
     // We set the number of threads to be the minimum between what was provided by the user and the file size.
     // If the file size is less than the number of threads and we ignore this, where are divisions by zero.
     const nthreads = std.math.min(config.threads, file_size);
-
     const avg_size = file_size / nthreads;
+
+    var arena = heap.ArenaAllocator.init(heap.page_allocator);
+    var alloc = arena.allocator();
     var answers: std.ArrayList(u64) = std.ArrayList(u64).init(alloc);
     var i: u64 = 0;
     while (i < nthreads) : (i += 1) {
@@ -41,15 +39,10 @@ pub fn run(config: args.Config) !void {
         var thread = try std.Thread.spawn(.{}, workerFunction, .{task});
         try threads.append(thread);
     }
-    for (threads.items) |thread| {
-        thread.join();
-    }
+    for (threads.items) |thread| thread.join();
     var lines: u64 = 0;
-    for (answers.items) |answer| {
-        lines += answer;
-    }
-    const stdout = std.io.getStdOut().writer();
-    try stdout.print("{d}\n", .{lines});
+    for (answers.items) |answer| lines += answer;
+    return lines;
 }
 
 pub fn getFileSize(file_name: []const u8) !u64 {

@@ -7,7 +7,9 @@ const cnt = @import("./cnt.zig");
 
 pub fn main() !void {
     if (args.parse_args()) |config| {
-        try cnt.run(config);
+        const lines = try cnt.run(config);
+        const stdout = std.io.getStdOut().writer();
+        try stdout.print("{d}\n", .{lines});
     } else |err| {
         args.printErrorMessage(err, std.io.getStdErr().writer());
         std.os.exit(1);
