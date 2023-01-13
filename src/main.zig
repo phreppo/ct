@@ -26,7 +26,7 @@ fn workerFunction(task: Task) !void {
     std.debug.print("worker:\n{s}\n", .{buffer[0..bytes_read]});
 }
 
-pub fn countLines(file_name: []const u8, from: u64, len: u64) !u64 {
+pub fn countLinesByte(file_name: []const u8, from: u64, len: u64) !u64 {
     var file = try fs.cwd().openFile(file_name, fs.File.OpenFlags{});
     try file.seekTo(from);
     var reader = file.reader();
@@ -41,15 +41,41 @@ pub fn countLines(file_name: []const u8, from: u64, len: u64) !u64 {
     return lines;
 }
 
+pub fn countLinesChunk(file_name: []const u8, from: u64, len: u64, chunk_size: u64) !u64 {
+    var arena = heap.ArenaAllocator.init(heap.page_allocator);
+    var alloc = arena.allocator();
+    var chunk = try alloc.alloc(u8, chunk_size);
+    var file = try fs.cwd().openFile(file_name, fs.File.OpenFlags{});
+    try file.seekTo(from);
+    var reader = file.reader();
+    var bytes_read: usize = 0;
+    var lines: u64 = 0;
+    while (bytes_read < len) {
+        bytes_read += try reader.read(chunk);
+        for (chunk) |c| {
+            if (c == '\n') {
+                lines += 1;
+            }
+        }
+    }
+    return lines;
+}
+
 pub fn main() !void {
     const file_name: []const u8 = "file.txt";
     std.debug.print("File: {s}\n", .{file_name});
-    var file: fs.File = try fs.cwd().openFile(file_name, fs.File.OpenFlags{});
-    defer file.close();
-    const stat = try file.stat();
-    std.debug.print("{d}\n", .{stat.size});
-    const lines = try countLines(file_name, 0, stat.size);
-    std.debug.print("lines: {d}\n", .{lines});
+    const file_size = try getFileSize(file_name);
+    std.debug.print("{d}\n", .{file_size});
+    var timer = try std.time.Timer.start();
+    // const lines = try countLinesByte(file_name, 0, file_size);
+    // var countLinesByteTime = timer.lap() / 1000;
+    // std.debug.print("countLinesByte lines: {d}\n", .{lines});
+    // std.debug.print("countLinesByte time(ms): {d}\n", .{countLinesByteTime});
+    // timer.reset();
+    const linesChunk = try countLinesChunk(file_name, 0, file_size, 51200);
+    var countLinesChunkTime = timer.lap() / 1000;
+    std.debug.print("countLinesChunk lines: {d}\n", .{linesChunk});
+    std.debug.print("countLinesChunk time(ms): {d}\n", .{countLinesChunkTime});
     // const nthreads: u32 = DEFAULT_NUMBER_OF_THREADS;
     // const avg_size = stat.size / nthreads;
     // var arena = heap.ArenaAllocator.init(heap.page_allocator);
@@ -78,6 +104,13 @@ pub fn main() !void {
     //     thread.join();
     // }
     // std.debug.print("Done!\n", .{});
+}
+
+pub fn getFileSize(file_name: []const u8) !u64 {
+    var file: fs.File = try fs.cwd().openFile(file_name, fs.File.OpenFlags{});
+    defer file.close();
+    const stat = try file.stat();
+    return stat.size;
 }
 
 test "simple test" {
