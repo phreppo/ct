@@ -1,5 +1,5 @@
 comptime {
-    // Run the unit tests
+    // Run the unit tests.
     _ = @import("src/main.zig");
-    _ = @import("src/cnt.zig");
+    _ = @import("src/ct.zig");
 }
