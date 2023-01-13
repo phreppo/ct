@@ -33,6 +33,7 @@ pub fn parse_args() ParseArgsError!Config {
     var threads: u64 = DEFAULT_NUMBER_OF_THREADS;
     var chunks_size: u64 = DEFAULT_CHUNKS_SIZE;
     var iter = std.process.args(); // TODO: use args with allocator for cross-platform code.
+    defer iter.deinit();
     _ = iter.next(); // Skip the name of the program.
     while (iter.next()) |arg_slice| {
         var arg = std.mem.span(arg_slice);
