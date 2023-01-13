@@ -7,6 +7,7 @@ const args = @import("./args.zig");
 const Task = struct { file_name: []const u8, chunk_size: u64, from: u64, len: u64, answer: *u64 };
 
 pub fn run(config: args.Config) !u64 {
+    // TODO: the last thread should be executed in the current thread, without spawning a new one.
     const file_size = try getFileSize(config.file_name);
     if (file_size == 0) {
         return 0;
