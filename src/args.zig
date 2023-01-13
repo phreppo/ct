@@ -56,7 +56,11 @@ pub fn parse_args() ParseArgsError!Config {
     } else return error.FilePathNotProvided;
 }
 
-fn parse_numeric_arg(iter : *std.process.ArgIterator, missing_arg_error: ParseArgsError, parse_integer_error: ParseArgsError) ParseArgsError!u64 {
+fn parse_numeric_arg(
+            iter: *std.process.ArgIterator, 
+            missing_arg_error: ParseArgsError, 
+            parse_integer_error: ParseArgsError
+        ) ParseArgsError!u64 {
     var val = iter.next() orelse return missing_arg_error;
     return std.fmt.parseInt(u64, mem.span(val), 10) catch return parse_integer_error;
 }
@@ -68,7 +72,7 @@ pub fn printErrorMessage(err: ParseArgsError, writer: std.fs.File.Writer) !void 
         },
         error.ThreadOptionExpectsArgument, error.ThreadOptionExpectsInteger => {
             try writer.print("{s} and {s} options expect an argument.\n", .{ THREADS_LONG_FLAG, THREADS_SHORT_FLAG });
-        }, 
+        },
         error.ChunksSizeOptionExpectsArgument, error.ChunksSizeOptionExpectsInteger => {
             try writer.print("{s} and {s} options expect an integer argument.\n", .{ CHUNKS_LONG_FLAG, CHUNKS_SHORT_FLAG });
         },
