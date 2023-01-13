@@ -81,7 +81,11 @@ pub fn countLinesChunk(file_name: []const u8, from: u64, len: u64, chunk_size: u
     var alloc = arena.allocator();
     const actual_chunk_size = if (len >= chunk_size) chunk_size else len;
     var chunk = try alloc.alloc(u8, actual_chunk_size);
-    const open_flags = fs.File.OpenFlags{ .lock = .Shared, .lock_nonblocking = true };
+    const open_flags = fs.File.OpenFlags{ 
+        .mode = .read_only, 
+        .lock = .None, 
+        .lock_nonblocking = true 
+    };
     var file = try fs.cwd().openFile(file_name, open_flags);
     defer file.close();
     try file.seekTo(from);
