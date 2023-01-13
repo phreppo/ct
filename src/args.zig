@@ -48,10 +48,9 @@ pub fn parse_args() ParseArgsError!Config {
 }
 
 fn manyPtrToSlice(ptr: [*:0]const u8) []const u8 {
-    var l: usize = 0;
     var i: usize = 0;
-    while (ptr[i] != 0) : (i += 1) l += 1;
-    return ptr[0..l];
+    while (ptr[i] != 0) : (i += 1) {}
+    return ptr[0..i];
 }
 
 pub fn printErrorMessage(err: ParseArgsError, writer: std.fs.File.Writer) void {

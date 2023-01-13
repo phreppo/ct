@@ -8,6 +8,9 @@ const Task = struct { file_name: []const u8, chunk_size: u64, from: u64, len: u6
 
 pub fn run(config: args.Config) !u64 {
     const file_size = try getFileSize(config.file_name);
+    if (file_size == 0) {
+        return 0;
+    }
     // We set the number of threads to be the minimum between what was provided by the user and the file size.
     // If the file size is less than the number of threads and we ignore this, where are divisions by zero.
     const nthreads = std.math.min(config.threads, file_size);
@@ -79,4 +82,24 @@ pub fn countLinesChunk(file_name: []const u8, from: u64, len: u64, chunk_size: u
         }
     }
     return lines;
+}
+
+const testing = std.testing;
+test "six lines" {
+    const conf: args.Config = args.Config{
+        .file_name = "tests/five-lines.txt",
+    };
+    try testing.expectEqual(@as(u64, 5), try run(conf));
+}
+test "zero lines" {
+    const conf: args.Config = args.Config{
+        .file_name = "tests/zero-lines.txt",
+    };
+    try testing.expectEqual(@as(u64, 0), try run(conf));
+}
+test "zero lines non-empty" {
+    const conf: args.Config = args.Config{
+        .file_name = "tests/zero-non-empty.txt",
+    };
+    try testing.expectEqual(@as(u64, 0), try run(conf));
 }
