@@ -60,8 +60,9 @@ pub fn main() !void {
             lines += answer;
         }
         std.debug.print("Lines: {d}\n", .{lines});
-    } else |err| switch (err) {
-        error.FilePathNotProvided => std.os.exit(1),
+    } else |err| {
+        args.printErrorMessage(err);
+        std.os.exit(1);
     }
 }
 
