@@ -86,7 +86,7 @@ pub fn printHelpMessage(writer: std.fs.File.Writer) !void {
     try writer.print("usage: ct [OPTIONS] [input]\n", .{});
     try writer.print("OPTIONS\n", .{});
     try writer.print("\t{s},{s} <threads>\t\tSets the number of threads to use. (default: {d})\n", .{ THREADS_LONG_FLAG, THREADS_SHORT_FLAG, DEFAULT_NUMBER_OF_THREADS });
-    try writer.print("\t{s},{s} <chunks-size>\tSets the size (in bytes) of the chunks allocated. (default: {d})\n", .{ CHUNKS_LONG_FLAG, CHUNKS_SHORT_FLAG, DEFAULT_CHUNKS_SIZE });
+    try writer.print("\t{s},{s} <chunks-size>\tSets the size (in bytes) of the chunks allocated. (default: {d}Kb)\n", .{ CHUNKS_LONG_FLAG, CHUNKS_SHORT_FLAG, DEFAULT_CHUNKS_SIZE / 1024 });
     try writer.print("ARGS\n", .{});
     try writer.print("\t<input>\t\tPath to the input file.\n", .{});
 }
