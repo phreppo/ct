@@ -8,23 +8,30 @@ const Task = struct {
     /// Name of the file to open.
     file_name: []const u8,
     /// Size to use for the chunk.
-    chunk_size: u64, 
+    chunk_size: u64,
     /// Offset in the input file.
-    from: u64, 
+    from: u64,
     /// Number of bytes to read.
-    len: u64, 
+    len: u64,
     /// Address for writing the answer for the ask.
-    answer: *u64 
+    answer: *u64,
 };
 
-pub fn run(config: args.Config) !u64 {
+pub fn run(config: args.Config) !void {
+    for (config.file_names.items) |file_name| {
+        const lines = try runFile(file_name, config.threads, config.chunks_size);
+        try std.io.getStdOut().writer().print("{d}: {s}\n", .{ lines, file_name });
+    }
+}
+
+pub fn runFile(file_name: []const u8, threads: u64, chunks_size: u64) !u64 {
     // TODO: the last thread should be executed in the current thread, without spawning a new one.
-    const file_size = try getFileSize(config.file_name);
+    const file_size = try getFileSize(file_name);
     if (file_size == 0) return 0;
 
     // We set the number of threads to be the minimum between what was provided by the user and the file size.
     // If the file size is less than the number of threads and we ignore this, where are divisions by zero.
-    const nthreads = std.math.min(config.threads, file_size);
+    const nthreads = std.math.min(threads, file_size);
     const avg_size = file_size / nthreads;
 
     var arena = heap.ArenaAllocator.init(heap.page_allocator);
@@ -41,24 +48,18 @@ pub fn run(config: args.Config) !u64 {
         const reminder: u64 = try std.math.rem(u64, file_size, avg_size);
         var current_size: u64 = avg_size;
         if (i < reminder) current_size += 1;
-        const task = Task{ 
-            .file_name = config.file_name, 
-            .chunk_size = config.chunks_size, 
-            .from = initial_offset, 
-            .len = current_size, 
-            .answer = &(answers.items[i]) 
-        };
+        const task = Task{ .file_name = file_name, .chunk_size = chunks_size, .from = initial_offset, .len = current_size, .answer = &(answers.items[i]) };
         try tasks.append(task);
         initial_offset += current_size;
     }
-    var threads = std.ArrayList(std.Thread).init(alloc);
-    defer threads.deinit();
+    var threads_list = std.ArrayList(std.Thread).init(alloc);
+    defer threads_list.deinit();
     i = 0;
     for (tasks.items) |task| {
         var thread = try std.Thread.spawn(.{}, workerFunction, .{task});
-        try threads.append(thread);
+        try threads_list.append(thread);
     }
-    for (threads.items) |thread| thread.join();
+    for (threads_list.items) |thread| thread.join();
     var lines: u64 = 0;
     for (answers.items) |answer| lines += answer;
     return lines;
@@ -82,11 +83,7 @@ pub fn countLinesChunk(file_name: []const u8, from: u64, len: u64, chunk_size: u
     var alloc = arena.allocator();
     const actual_chunk_size = if (len >= chunk_size) chunk_size else len;
     var chunk = try alloc.alloc(u8, actual_chunk_size);
-    const open_flags = fs.File.OpenFlags{ 
-        .mode = .read_only, 
-        .lock = .None, 
-        .lock_nonblocking = true 
-    };
+    const open_flags = fs.File.OpenFlags{ .mode = .read_only, .lock = .None, .lock_nonblocking = true };
     var file = try fs.cwd().openFile(file_name, open_flags);
     defer file.close();
     try file.seekTo(from);
@@ -107,30 +104,17 @@ pub fn countLinesChunk(file_name: []const u8, from: u64, len: u64, chunk_size: u
 
 const testing = std.testing;
 test "six lines" {
-    const conf: args.Config = args.Config{
-        .file_name = "tests/five-lines.txt",
-    };
-    try testRun(5, conf);
+    try testRun(5, "tests/five-lines.txt", 2, 2048);
 }
 test "zero lines" {
-    const conf: args.Config = args.Config{
-        .file_name = "tests/zero-lines.txt",
-    };
-    try testRun(0, conf);
+    try testRun(0, "tests/zero-lines.txt", 2, 2014);
 }
 test "zero lines non-empty" {
-    const conf: args.Config = args.Config{
-        .file_name = "tests/zero-non-empty.txt",
-    };
-    try testRun(0, conf);
+    try testRun(0, "tests/zero-non-empty.txt", 2, 1024);
 }
 test "more threads than bytes" {
-    const conf: args.Config = args.Config{
-        .file_name = "tests/zero-lines.txt",
-        .threads = 512,
-    };
-    try testRun(0, conf);
+    try testRun(0, "tests/zero-lines.txt", 512, 1024);
 }
-fn testRun(expected: u64, conf: args.Config) !void {
-    try testing.expectEqual(expected, try run(conf));
+fn testRun(expected: u64, file_name: []const u8, threads: u64, chunks_size: u64) !void {
+    try testing.expectEqual(expected, try runFile(file_name, threads, chunks_size));
 }

@@ -10,10 +10,15 @@ const CHUNKS_LONG_FLAG: []const u8 = "--chunks-size";
 const CHUNKS_SHORT_FLAG: []const u8 = "-c";
 
 pub const Config = struct {
-    file_name: []const u8,
+    file_names: std.ArrayList([]const u8),
     threads: u64 = DEFAULT_NUMBER_OF_THREADS,
     chunks_size: u64 = DEFAULT_CHUNKS_SIZE,
+
+    pub fn deinit(self: Config) void {
+        self.file_names.deinit();
+    }
 };
+
 
 pub const ParseArgsError = error{ 
     /// The user did not provide an input file.
@@ -28,10 +33,12 @@ pub const ParseArgsError = error{
     ChunksSizeOptionExpectsInteger 
 };
 
-pub fn parse_args() ParseArgsError!Config {
-    var maybe_file_name: ?[]const u8 = null;
+pub fn parse_args(allocator: mem.Allocator) ParseArgsError!Config {
+    // var maybe_file_name: ?[]const u8 = null;
     var threads: u64 = DEFAULT_NUMBER_OF_THREADS;
     var chunks_size: u64 = DEFAULT_CHUNKS_SIZE;
+    var file_names = std.ArrayList([]const u8).init(allocator);
+    errdefer file_names.deinit();
     var iter = std.process.args(); // TODO: use args with allocator for cross-platform code.
     defer iter.deinit();
     _ = iter.next(); // Skip the name of the program.
@@ -45,16 +52,18 @@ pub fn parse_args() ParseArgsError!Config {
             chunks_size = try parse_numeric_arg(&iter, error.ChunksSizeOptionExpectsArgument, error.ChunksSizeOptionExpectsInteger);
         } else {
             // Set the name of the file.
-            maybe_file_name = arg;
+            file_names.append(arg) catch std.process.exit(1);
         }
     }
-    if (maybe_file_name) |file_name| {
+    if (file_names.items.len == 0) {
+        return error.FilePathNotProvided;
+    } else {
         return Config{
-            .file_name = file_name,
+            .file_names = file_names,
             .threads = threads,
             .chunks_size = chunks_size,
         };
-    } else return error.FilePathNotProvided;
+    }
 }
 
 fn parse_numeric_arg(
@@ -83,10 +92,10 @@ pub fn printErrorMessage(err: ParseArgsError, writer: std.fs.File.Writer) !void 
 }
 
 pub fn printHelpMessage(writer: std.fs.File.Writer) !void {
-    try writer.print("usage: ct [OPTIONS] [input]\n", .{});
+    try writer.print("usage: ct [OPTIONS] [input]...\n", .{});
     try writer.print("OPTIONS\n", .{});
     try writer.print("\t{s},{s} <threads>\t\tSets the number of threads to use. (default: {d})\n", .{ THREADS_LONG_FLAG, THREADS_SHORT_FLAG, DEFAULT_NUMBER_OF_THREADS });
     try writer.print("\t{s},{s} <chunks-size>\tSets the size (in bytes) of the chunks allocated. (default: {d}Kb)\n", .{ CHUNKS_LONG_FLAG, CHUNKS_SHORT_FLAG, DEFAULT_CHUNKS_SIZE / 1024 });
     try writer.print("ARGS\n", .{});
-    try writer.print("\t<input>\t\tPath to the input file.\n", .{});
+    try writer.print("\t<input>\t\tPath to the input file(s).\n", .{});
 }
