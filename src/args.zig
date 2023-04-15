@@ -34,16 +34,17 @@ pub const ParseArgsError = error{
 };
 
 pub fn parse_args(allocator: mem.Allocator) ParseArgsError!Config {
-    // var maybe_file_name: ?[]const u8 = null;
     var threads: u64 = DEFAULT_NUMBER_OF_THREADS;
     var chunks_size: u64 = DEFAULT_CHUNKS_SIZE;
     var file_names = std.ArrayList([]const u8).init(allocator);
     errdefer file_names.deinit();
-    var iter = std.process.args(); // TODO: use args with allocator for cross-platform code.
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    var alloc = arena.allocator();
+    defer arena.deinit();
+    var iter = std.process.argsWithAllocator(alloc);
     defer iter.deinit();
     _ = iter.next(); // Skip the name of the program.
-    while (iter.next()) |arg_slice| {
-        var arg = std.mem.span(arg_slice);
+    while (iter.next()) |arg| {
         if (mem.eql(u8, arg, THREADS_LONG_FLAG) or mem.eql(u8, arg, THREADS_SHORT_FLAG)) {
             // Set the threads.
             threads = try parse_numeric_arg(&iter, error.ThreadOptionExpectsArgument, error.ThreadOptionExpectsInteger);
@@ -72,7 +73,7 @@ fn parse_numeric_arg(
     parse_integer_error: ParseArgsError
 ) ParseArgsError!u64 {
     var val = iter.next() orelse return missing_arg_error;
-    return std.fmt.parseInt(u64, mem.span(val), 10) catch return parse_integer_error;
+    return std.fmt.parseInt(u64, val, 10) catch return parse_integer_error;
 }
 
 pub fn printErrorMessage(err: ParseArgsError, writer: std.fs.File.Writer) !void {
