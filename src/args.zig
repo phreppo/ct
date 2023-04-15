@@ -41,7 +41,7 @@ pub fn parse_args(allocator: mem.Allocator) ParseArgsError!Config {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     var alloc = arena.allocator();
     defer arena.deinit();
-    var iter = std.process.argsWithAllocator(alloc);
+    var iter = std.process.argsWithAllocator(alloc) catch unreachable;
     defer iter.deinit();
     _ = iter.next(); // Skip the name of the program.
     while (iter.next()) |arg| {

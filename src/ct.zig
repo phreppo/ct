@@ -38,13 +38,13 @@ pub fn runFile(file_name: []const u8, threads: u64, chunks_size: u64) !u64 {
     var alloc = arena.allocator();
     var answers: std.ArrayList(u64) = std.ArrayList(u64).init(alloc);
     defer answers.deinit();
-    var i: u64 = 0;
-    while (i < nthreads) : (i += 1) try answers.append(0);
+    for (0..nthreads) |_| {
+        try answers.append(0);
+    }
     var tasks = std.ArrayList(Task).init(alloc);
     defer tasks.deinit();
     var initial_offset: u64 = 0;
-    i = 0;
-    while (i < nthreads) : (i += 1) {
+    for (0..nthreads) |i| {
         const reminder: u64 = try std.math.rem(u64, file_size, avg_size);
         var current_size: u64 = avg_size;
         if (i < reminder) current_size += 1;
@@ -54,7 +54,6 @@ pub fn runFile(file_name: []const u8, threads: u64, chunks_size: u64) !u64 {
     }
     var threads_list = std.ArrayList(std.Thread).init(alloc);
     defer threads_list.deinit();
-    i = 0;
     for (tasks.items) |task| {
         var thread = try std.Thread.spawn(.{}, workerFunction, .{task});
         try threads_list.append(thread);
