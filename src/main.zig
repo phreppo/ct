@@ -14,6 +14,8 @@ pub fn main() !void {
         try ct.run(config);
     } else |err| {
         try args.printErrorMessage(err, std.io.getStdErr().writer());
-        std.os.exit(1);
+        if (err != error.WantsHelp) {
+            std.os.exit(1);
+        }
     }
 }
