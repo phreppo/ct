@@ -87,8 +87,6 @@ fn workerFunction(task: Task) !void {
 /// Counts the lines in [file_name] from [from] for [len] bytes. The buffered
 /// read happens is a buffer of size [chunk_size]. Has to open the file with
 /// [openFile].
-///
-/// TODO: Maybe it is faster if we pass the file already opened.
 pub fn countLinesChunk(file_name: []const u8, from: u64, len: u64, chunk_size: u64) !u64 {
     var arena = heap.ArenaAllocator.init(heap.page_allocator);
     var alloc = arena.allocator();
