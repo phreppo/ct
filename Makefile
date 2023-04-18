@@ -6,7 +6,7 @@ build:
 	zig build -Doptimize=ReleaseFast
 
 test:
-	zig build test -Doptimize=ReleaseFast
+	zig build test
 
 clean:
 	rm -rdf ./zig-out ./zig-cache

@@ -30,10 +30,11 @@ pub fn runFile(file_name: []const u8, threads: u64, chunks_size: u64) !u64 {
     if (file_size == 0) return 0;
 
     // We set the number of threads to be the minimum between what was provided by the user and the file size.
-    // If the file size is less than the number of threads and we ignore this, where are divisions by zero.
+    // If the file size is less than the number of threads and we ignore this, there are divisions by zero.
     const nthreads = std.math.min(threads, file_size);
     const avg_size = file_size / nthreads;
 
+    // Prepare the array to write the results.
     var arena = heap.ArenaAllocator.init(heap.page_allocator);
     var alloc = arena.allocator();
     var answers: std.ArrayList(u64) = std.ArrayList(u64).init(alloc);
@@ -41,6 +42,8 @@ pub fn runFile(file_name: []const u8, threads: u64, chunks_size: u64) !u64 {
     for (0..nthreads) |_| {
         try answers.append(0);
     }
+
+    // Create the tasks.
     var tasks = std.ArrayList(Task).init(alloc);
     defer tasks.deinit();
     var initial_offset: u64 = 0;
@@ -52,12 +55,16 @@ pub fn runFile(file_name: []const u8, threads: u64, chunks_size: u64) !u64 {
         try tasks.append(task);
         initial_offset += current_size;
     }
+
+    // Spawn the threads.
     var threads_list = std.ArrayList(std.Thread).init(alloc);
     defer threads_list.deinit();
     for (tasks.items) |task| {
         var thread = try std.Thread.spawn(.{}, workerFunction, .{task});
         try threads_list.append(thread);
     }
+
+    // Collect the results.
     for (threads_list.items) |thread| thread.join();
     var lines: u64 = 0;
     for (answers.items) |answer| lines += answer;
@@ -77,6 +84,11 @@ fn workerFunction(task: Task) !void {
     task.answer.* = lines;
 }
 
+/// Counts the lines in [file_name] from [from] for [len] bytes. The buffered
+/// read happens is a buffer of size [chunk_size]. Has to open the file with
+/// [openFile].
+///
+/// TODO: Maybe it is faster if we pass the file already opened.
 pub fn countLinesChunk(file_name: []const u8, from: u64, len: u64, chunk_size: u64) !u64 {
     var arena = heap.ArenaAllocator.init(heap.page_allocator);
     var alloc = arena.allocator();
