@@ -79,3 +79,4 @@ By giving as input files of different sizes `cw` does not scale lineraly.
 I am using Zig version `0.11.0-dev.2613+b42562be7`.
 I would not use Zig `< 0.11`.
 To build simply run `make`.
+If you want to build the optimized version use `make release`.
