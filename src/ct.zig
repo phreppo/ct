@@ -4,7 +4,7 @@ const heap = std.heap;
 const os = std.os;
 const args = @import("./args.zig");
 
-const Task = struct {
+const CountLinesTask = struct {
     /// Name of the file to open.
     file_name: []const u8,
     /// Size to use for the chunk.
@@ -32,7 +32,6 @@ pub fn runFile(file_name: []const u8, threads: u64, chunks_size: u64) !u64 {
     // We set the number of threads to be the minimum between what was provided by the user and the file size.
     // If the file size is less than the number of threads and we ignore this, there are divisions by zero.
     const nthreads = std.math.min(threads, file_size);
-    const avg_size = file_size / nthreads;
 
     // Prepare the array to write the results.
     var arena = heap.ArenaAllocator.init(heap.page_allocator);
@@ -43,18 +42,8 @@ pub fn runFile(file_name: []const u8, threads: u64, chunks_size: u64) !u64 {
         try answers.append(0);
     }
 
-    // Create the tasks.
-    var tasks = std.ArrayList(Task).init(alloc);
+    var tasks = try createTasks(alloc, file_name, chunks_size, nthreads, file_size, answers);
     defer tasks.deinit();
-    var initial_offset: u64 = 0;
-    for (0..nthreads) |i| {
-        const reminder: u64 = try std.math.rem(u64, file_size, avg_size);
-        var current_size: u64 = avg_size;
-        if (i < reminder) current_size += 1;
-        const task = Task{ .file_name = file_name, .chunk_size = chunks_size, .from = initial_offset, .len = current_size, .answer = &(answers.items[i]) };
-        try tasks.append(task);
-        initial_offset += current_size;
-    }
 
     // Spawn the threads.
     var threads_list = std.ArrayList(std.Thread).init(alloc);
@@ -78,8 +67,38 @@ pub fn getFileSize(file_name: []const u8) !u64 {
     return stat.size;
 }
 
+/// Create the tasks evenly distributed for the number of threads.
+/// The caller owns the `ArrayList` of tasks, and must deallocate it.
+fn createTasks(
+    alloc: std.mem.Allocator, 
+    file_name: []const u8, 
+    chunks_size: usize,
+    nthreads: usize,
+    file_size: usize,
+    answers: std.ArrayList(u64)
+) !std.ArrayList(CountLinesTask) {
+    const avg_size = file_size / nthreads;
+    var tasks = std.ArrayList(CountLinesTask).init(alloc);
+    var initial_offset: u64 = 0;
+    for (0..nthreads) |i| {
+        const reminder: u64 = try std.math.rem(u64, file_size, avg_size);
+        var current_size: u64 = avg_size;
+        if (i < reminder) current_size += 1;
+        const task = CountLinesTask{ 
+            .file_name = file_name, 
+            .chunk_size = chunks_size, 
+            .from = initial_offset, 
+            .len = current_size, 
+            .answer = &(answers.items[i]) 
+        };
+        try tasks.append(task);
+        initial_offset += current_size;
+    }
+    return tasks;
+}
+
 // Worker function run by each thread.
-fn workerFunction(task: Task) !void {
+fn workerFunction(task: CountLinesTask) !void {
     const lines = try countLinesChunk(task.file_name, task.from, task.len, task.chunk_size);
     task.answer.* = lines;
 }
@@ -123,6 +142,12 @@ test "zero lines non-empty" {
 }
 test "more threads than bytes" {
     try testRun(0, "tests/zero-lines.txt", 512, 1024);
+}
+test "utf-8" {
+    try testRun(3, "tests/utf-8.txt", 2, 1024);
+}
+test "utf-8 with circle" {
+    try testRun(0, "tests/utf-8-2.txt", 1, 1024);
 }
 fn testRun(expected: u64, file_name: []const u8, threads: u64, chunks_size: u64) !void {
     try testing.expectEqual(expected, try runFile(file_name, threads, chunks_size));
