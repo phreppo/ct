@@ -24,6 +24,7 @@ ARGS
 `ct` uses a multithreaded algorithm that reads the input file in chunks.
 It allocates a fixed amount of memory for each thread (that can be set with `--chunks-size`), and reuses it for the whole execution of the program.
 This minimizes the number of allocations and makes the execution quite fast.
+Setting the `--chunk-size` parameter properly can have a huge impact on the performance.
 
 ## Benchmarks
 
