@@ -16,7 +16,7 @@ const CountLinesTask = struct {
     /// Address for writing the answer for the ask.
     answer: *u64,
     /// The first byte to read in the task is the beginning of an UTF-8 symbol.
-    first_byte_is_utf8_synchronized: bool
+    first_byte_is_utf8_synchronized: bool,
 };
 
 pub fn run(config: args.Config) !void {
@@ -33,11 +33,11 @@ pub fn runFile(file_name: []const u8, threads: u64, chunks_size: u64) !u64 {
 
     // We set the number of threads to be the minimum between what was provided by the user and the file size.
     // If the file size is less than the number of threads and we ignore this, there are divisions by zero.
-    const nthreads = std.math.min(threads, file_size);
+    const nthreads = @min(threads, file_size);
 
     // Prepare the array to write the results.
     var arena = heap.ArenaAllocator.init(heap.page_allocator);
-    var alloc = arena.allocator();
+    const alloc = arena.allocator();
     var answers: std.ArrayList(u64) = std.ArrayList(u64).init(alloc);
     defer answers.deinit();
     for (0..nthreads) |_| {
@@ -51,7 +51,7 @@ pub fn runFile(file_name: []const u8, threads: u64, chunks_size: u64) !u64 {
     var threads_list = std.ArrayList(std.Thread).init(alloc);
     defer threads_list.deinit();
     for (tasks.items) |task| {
-        var thread = try std.Thread.spawn(.{}, workerFunction, .{task});
+        const thread = try std.Thread.spawn(.{}, workerFunction, .{task});
         try threads_list.append(thread);
     }
 
@@ -71,14 +71,7 @@ pub fn getFileSize(file_name: []const u8) !u64 {
 
 /// Create the tasks evenly distributed for the number of threads.
 /// The caller owns the `ArrayList` of tasks, and must deallocate it.
-fn createTasks(
-    alloc: std.mem.Allocator, 
-    file_name: []const u8, 
-    chunks_size: usize, 
-    nthreads: usize, 
-    file_size: usize, 
-    answers: std.ArrayList(u64)
-) !std.ArrayList(CountLinesTask) {
+fn createTasks(alloc: std.mem.Allocator, file_name: []const u8, chunks_size: usize, nthreads: usize, file_size: usize, answers: std.ArrayList(u64)) !std.ArrayList(CountLinesTask) {
     const avg_size = file_size / nthreads;
     var tasks = std.ArrayList(CountLinesTask).init(alloc);
     var initial_offset: u64 = 0;
@@ -89,10 +82,10 @@ fn createTasks(
 
         var first_byte_is_utf8_synchronized = true;
         if (initial_offset > 0) {
-            // We have to check the byte previous to the current one: if it 
+            // We have to check the byte previous to the current one: if it
             // starts with a 1, the first byte in the current tasks will be part
             // of the previous UTF-8 character.
-            const open_flags = fs.File.OpenFlags{ .mode = .read_only, .lock = .None, .lock_nonblocking = true };
+            const open_flags = fs.File.OpenFlags{ .mode = .read_only, .lock = .none, .lock_nonblocking = true };
             var file = try fs.cwd().openFile(file_name, open_flags);
             try file.seekTo(initial_offset - 1);
             var reader = file.reader();
@@ -104,14 +97,7 @@ fn createTasks(
             file.close();
         }
 
-        const task = CountLinesTask{ 
-            .file_name = file_name, 
-            .chunk_size = chunks_size, 
-            .from = initial_offset, 
-            .len = current_size, 
-            .answer = &(answers.items[i]),
-            .first_byte_is_utf8_synchronized = first_byte_is_utf8_synchronized
-        };
+        const task = CountLinesTask{ .file_name = file_name, .chunk_size = chunks_size, .from = initial_offset, .len = current_size, .answer = &(answers.items[i]), .first_byte_is_utf8_synchronized = first_byte_is_utf8_synchronized };
         try tasks.append(task);
         initial_offset += current_size;
     }
@@ -136,7 +122,7 @@ pub fn countLinesChunk(file_name: []const u8, from: u64, len: u64, chunk_size: u
     var chunk = try alloc.alloc(u8, actual_chunk_size);
 
     // Prepare the file and the reader.
-    const open_flags = fs.File.OpenFlags{ .mode = .read_only, .lock = .None, .lock_nonblocking = true };
+    const open_flags = fs.File.OpenFlags{ .mode = .read_only, .lock = .none, .lock_nonblocking = true };
     var file = try fs.cwd().openFile(file_name, open_flags);
     defer file.close();
     try file.seekTo(from);
@@ -150,7 +136,7 @@ pub fn countLinesChunk(file_name: []const u8, from: u64, len: u64, chunk_size: u
 
     var lines: u64 = 0;
     while (bytes_read < len) {
-        var current_bytes_read = try reader.readAll(chunk);
+        const current_bytes_read = try reader.readAll(chunk);
         bytes_read += current_bytes_read;
         for (chunk[0..current_bytes_read]) |c| {
             if (c == '\n') {

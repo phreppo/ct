@@ -22,15 +22,15 @@ pub const Config = struct {
 };
 
 
-pub const ParseArgsError = error{ 
+pub const ParseArgsError = error {
     /// The user did not provide an input file.
-    FilePathNotProvided, 
+    FilePathNotProvided,
     /// The user did not provide an argument for the thread option.
-    ThreadOptionExpectsArgument, 
+    ThreadOptionExpectsArgument,
     /// The user did not provide an integer argument for the thread option.
-    ThreadOptionExpectsInteger, 
+    ThreadOptionExpectsInteger,
     /// The user did not provide an argument for the chunks size option.
-    ChunksSizeOptionExpectsArgument, 
+    ChunksSizeOptionExpectsArgument,
     /// The user did not provide an integer argument for the chunks size option.
     ChunksSizeOptionExpectsInteger,
     /// The user wants to print the help message.
@@ -43,7 +43,7 @@ pub fn parse_args(allocator: mem.Allocator) ParseArgsError!Config {
     var file_names = std.ArrayList([]const u8).init(allocator);
     errdefer file_names.deinit();
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    var alloc = arena.allocator();
+    const alloc = arena.allocator();
     defer arena.deinit();
     var iter = std.process.argsWithAllocator(alloc) catch unreachable;
     defer iter.deinit();
@@ -74,17 +74,17 @@ pub fn parse_args(allocator: mem.Allocator) ParseArgsError!Config {
 }
 
 fn parse_numeric_arg(
-    iter: *std.process.ArgIterator, 
-    missing_arg_error: ParseArgsError, 
+    iter: *std.process.ArgIterator,
+    missing_arg_error: ParseArgsError,
     parse_integer_error: ParseArgsError
 ) ParseArgsError!u64 {
-    var val = iter.next() orelse return missing_arg_error;
+    const val = iter.next() orelse return missing_arg_error;
     return std.fmt.parseInt(u64, val, 10) catch return parse_integer_error;
 }
 
 pub fn printErrorMessage(err: ParseArgsError, writer: std.fs.File.Writer) !void {
     switch (err) {
-        error.WantsHelp => { },
+        error.WantsHelp => {},
         error.FilePathNotProvided => {
             try writer.print("Must provide an input file.\n", .{});
             try writer.print("\n", .{});

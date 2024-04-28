@@ -47,7 +47,7 @@ The Python script (`./scripts/countlines.py`) fails on the 16Gb file, so that I 
 ### Multithreaded Benchmarks
 
 `ct`'s algorithm is optimized for multithreading.
-`wc -l` is not multithreaded, so that we have to compare to sequential code. 
+`wc -l` is not multithreaded, so that we have to compare to sequential code.
 Here are the results using 4 threads in `ct` and `cw`:
 
 ![Unfair results](./img/benchmarks-unfair.png)
@@ -77,7 +77,6 @@ By giving as input files of different sizes `cw` does not scale lineraly.
 
 ## Building
 
-I am using Zig version `0.11.0-dev.2613+b42562be7`.
-I would not use Zig `< 0.11`.
+Zig should be version `>= 0.12.0`.
 To build simply run `make`.
 If you want to build the optimized version use `make release`.
