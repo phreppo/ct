@@ -26,7 +26,7 @@ pub fn run(config: args.Config) !void {
     }
 }
 
-pub fn runFile(file_name: []const u8, threads: u64, chunks_size: u64) !u64 {
+fn runFile(file_name: []const u8, threads: u64, chunks_size: u64) !u64 {
     // TODO: the last thread should be executed in the current thread, without spawning a new one.
     const file_size = try getFileSize(file_name);
     if (file_size == 0) return 0;
@@ -62,7 +62,7 @@ pub fn runFile(file_name: []const u8, threads: u64, chunks_size: u64) !u64 {
     return lines;
 }
 
-pub fn getFileSize(file_name: []const u8) !u64 {
+fn getFileSize(file_name: []const u8) !u64 {
     var file: fs.File = try fs.cwd().openFile(file_name, fs.File.OpenFlags{});
     defer file.close();
     const stat = try file.stat();

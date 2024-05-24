@@ -1,6 +1,7 @@
 const std = @import("std");
 const mem = std.mem;
 const os = std.os;
+const fs = std.fs;
 
 const HELP_LONG_FLAG: []const u8 = "--help";
 const HELP_SHORT_FLAG: []const u8 = "-h";
@@ -53,10 +54,10 @@ pub fn parse_args(allocator: mem.Allocator) ParseArgsError!Config {
             return error.WantsHelp;
         } else if (mem.eql(u8, arg, THREADS_LONG_FLAG) or mem.eql(u8, arg, THREADS_SHORT_FLAG)) {
             // Set the threads.
-            threads = try parse_numeric_arg(&iter, error.ThreadOptionExpectsArgument, error.ThreadOptionExpectsInteger);
+            threads = try parseNumericArg(&iter, error.ThreadOptionExpectsArgument, error.ThreadOptionExpectsInteger);
         } else if (mem.eql(u8, arg, CHUNKS_LONG_FLAG) or mem.eql(u8, arg, CHUNKS_SHORT_FLAG)) {
             // Set the chunks.
-            chunks_size = try parse_numeric_arg(&iter, error.ChunksSizeOptionExpectsArgument, error.ChunksSizeOptionExpectsInteger);
+            chunks_size = try parseNumericArg(&iter, error.ChunksSizeOptionExpectsArgument, error.ChunksSizeOptionExpectsInteger);
         } else {
             // Set the name of the file.
             file_names.append(arg) catch std.process.exit(1);
@@ -73,7 +74,7 @@ pub fn parse_args(allocator: mem.Allocator) ParseArgsError!Config {
     }
 }
 
-fn parse_numeric_arg(
+fn parseNumericArg(
     iter: *std.process.ArgIterator,
     missing_arg_error: ParseArgsError,
     parse_integer_error: ParseArgsError
@@ -82,7 +83,7 @@ fn parse_numeric_arg(
     return std.fmt.parseInt(u64, val, 10) catch return parse_integer_error;
 }
 
-pub fn printErrorMessage(err: ParseArgsError, writer: std.fs.File.Writer) !void {
+pub fn printErrorMessage(err: ParseArgsError, writer: fs.File.Writer) !void {
     switch (err) {
         error.WantsHelp => {},
         error.FilePathNotProvided => {
@@ -101,7 +102,7 @@ pub fn printErrorMessage(err: ParseArgsError, writer: std.fs.File.Writer) !void 
     try printHelpMessage(writer);
 }
 
-pub fn printHelpMessage(writer: std.fs.File.Writer) !void {
+pub fn printHelpMessage(writer: fs.File.Writer) fs.File.Writer.Error!void {
     try writer.print("usage: ct [OPTIONS] [input]...\n", .{});
     try writer.print("OPTIONS\n", .{});
     try writer.print("\t{s},{s} <threads>\t\tSets the number of threads to use. (default: {d})\n", .{ THREADS_LONG_FLAG, THREADS_SHORT_FLAG, DEFAULT_NUMBER_OF_THREADS });
