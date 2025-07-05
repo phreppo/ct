@@ -170,21 +170,27 @@ const testing = std.testing;
 test "six lines" {
     try testRun(5, "tests/five-lines.txt", 2, 2048);
 }
+
 test "zero lines" {
     try testRun(0, "tests/zero-lines.txt", 2, 2014);
 }
+
 test "zero lines non-empty" {
     try testRun(0, "tests/zero-non-empty.txt", 2, 1024);
 }
+
 test "more threads than bytes" {
     try testRun(0, "tests/zero-lines.txt", 512, 1024);
 }
+
 test "utf-8" {
     try testRun(3, "tests/utf-8.txt", 4, 1024);
 }
+
 test "utf-8 with circle" {
     try testRun(0, "tests/utf-8-2.txt", 1, 1024);
 }
+
 fn testRun(expected: u64, file_name: []const u8, threads: u64, chunks_size: u64) !void {
     try testing.expectEqual(expected, try runFile(file_name, threads, chunks_size));
 }
