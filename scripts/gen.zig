@@ -32,7 +32,7 @@ fn create_file_and_write_random_kb(file_name: []const u8, kb: u64) !void {
 
 fn create_file_to_write(file_name: []const u8) !fs.File {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    var allocator = arena.allocator();
+    const allocator = arena.allocator();
     try fs.cwd().makePath(EXAMPLES_PATH_PREFIX);
     const open_flags = fs.File.CreateFlags{};
     const path: []const u8 = try std.mem.concat(allocator, u8, &([_][]const u8{ EXAMPLES_PATH_PREFIX, file_name }));
@@ -45,12 +45,12 @@ fn write_random_kb(file: std.fs.File, kb: u64) !void {
     var allocator = arena.allocator();
     // Alloc one kb for buffered write.
     var chunk = try allocator.alloc(u8, 1024);
-    var rand = std.rand.DefaultPrng.init(0);
+    // var rand = std.rand.DefaultPrng.init(0);
     var i: usize = 0;
     while (i < kb) : (i += 1) {
         var j: usize = 0;
         while (j < 1024) : (j += 1)
-            chunk[j] = if (rand.random().boolean()) '\n' else 'a';
+            chunk[j] = if (std.crypto.random.boolean()) '\n' else 'a';
         try file.writeAll(chunk);
     }
 }
