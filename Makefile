@@ -6,7 +6,7 @@ build:
 	zig build
 
 release:
-	zig build -Doptimize=ReleaseFast
+	zig build --release=fast
 
 test:
 	zig build test
