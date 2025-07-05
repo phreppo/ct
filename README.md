@@ -77,6 +77,5 @@ By giving as input files of different sizes `cw` does not scale lineraly.
 
 ## Building
 
-Zig should be version `>= 0.12.0`.
 To build simply run `make`.
 If you want to build the optimized version use `make release`.
